@@ -29,7 +29,7 @@ class KnobSelector(ABC):
 
 class SHAPSelector(KnobSelector):
 
-    def knob_selection(self, config_space, history_container, num_hps, prediction=True):
+    def knob_selection(self, config_space, history_container, num_hps, prediction=False):
         columns = history_container.config_space_all.get_hyperparameter_names()
 
         X_df = config2df(history_container.configurations_all)
@@ -48,6 +48,8 @@ class SHAPSelector(KnobSelector):
                 X_df[col] = X_df[col].astype('float')
 
         Y = np.array(history_container.get_transformed_perfs()).astype('float')
+        print(f"SHAP SELECTION RESULTS: {Y}", flush = True)
+        print(f"SHAP SELECTION RESULTS: {X_df}", flush = True)
         Y = (Y - Y.mean()) / Y.std()
 
         if prediction:
@@ -264,6 +266,10 @@ class LASSOSelector(KnobSelector):
         columns = history_container.config_space_all.get_hyperparameter_names()
         X = convert_configurations_to_array(history_container.configurations_all)
         Y = np.array(history_container.get_transformed_perfs())
+
+        print(f"LASSO SELECTION RESULTS: {X}", flush = True)
+        print(f"LASSO SELECTION RESULTS: {Y}", flush = True)
+
         alphas, coefs, _ = lasso_path(X, Y)
 
         feature_importance = []

@@ -87,6 +87,7 @@ class PipleLine(BOBase):
         self.current_context = None
         advisor_kwargs = advisor_kwargs or {}
 
+        print(f"pipeline init history {self.num_objs}")
         # init history container
         if self.num_objs == 1:
             self.history_container = HistoryContainer(task_id=self.task_id,
@@ -101,6 +102,7 @@ class PipleLine(BOBase):
         # load history container if exists
         self.load_history()
 
+        print(f'optimizer type {optimizer_type}')
         if optimizer_type in ('MBO', 'SMAC', 'auto'):
             from autotune.optimizer.bo_optimizer import BO_Optimizer
             self.optimizer = BO_Optimizer(config_space,
@@ -183,6 +185,7 @@ class PipleLine(BOBase):
 
     def run(self):
         for _ in tqdm(range(self.iteration_id, self.max_iterations)):
+            print("**** pipleline.run iter", flush=True)
             if self.budget_left < 0:
                 self.logger.info('Time %f elapsed!' % self.runtime_limit)
                 break
@@ -204,6 +207,7 @@ class PipleLine(BOBase):
             if self.num_hps_init == len(self.config_space.get_hyperparameter_names()):
                 return
 
+            logger.info(f"Beginning knob sel")
             new_config_space, _ = self.selector.knob_selection(
                 self.config_space_all, self.history_container, self.num_hps_init)
 
@@ -250,9 +254,11 @@ class PipleLine(BOBase):
                     self.config_space = new_config_space
 
     def iterate(self):
+        self.logger.info("PIPELINE ITER")
         self.knob_selection()
         # get configuration suggestion
         config = self.optimizer.get_suggestion(history_container=self.history_container)
+        self.logger.info(f"Pipeline iter: Got suggestion {len(config.get_dictionary())}")
         _, trial_state, constraints, objs = self.evaluate(config)
 
         return config, trial_state, constraints, objs
@@ -281,6 +287,7 @@ class PipleLine(BOBase):
             self.optimizer.surrogate_model.current_context =  context
 
     def evaluate(self, config):
+        self.logger.info(f"Evaluating config: {config.get_dictionary()}")
         trial_state = SUCCESS
         start_time = time.time()
 

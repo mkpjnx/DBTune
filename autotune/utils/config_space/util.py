@@ -6,7 +6,8 @@ from typing import List
 import numpy as np
 
 from autotune.utils.config_space import Configuration, ConfigurationSpace
-
+from collections import defaultdict
+import pandas as pd
 
 def convert_configurations_to_array(configs: List[Configuration]) -> np.ndarray:
     """Impute inactive hyperparameters in configurations with their default.

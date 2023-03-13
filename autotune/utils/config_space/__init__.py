@@ -3,7 +3,7 @@
 from ConfigSpace import Configuration, ConfigurationSpace
 from ConfigSpace import ConfigurationSpace, Configuration, Constant,\
      CategoricalHyperparameter, UniformFloatHyperparameter, \
-     UniformIntegerHyperparameter, InCondition
+     UniformIntegerHyperparameter, OrdinalHyperparameter, InCondition
 from autotune.utils.config_space.util import convert_configurations_to_array
 from ConfigSpace.util import get_one_exchange_neighbourhood
 

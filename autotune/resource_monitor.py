@@ -24,12 +24,15 @@ class ResourceMonitor:
         self.alive = mp.Value('b', False)
 
     def run(self):
-        p1 = mp.Process(target=self.monitor_cpu_usage, args=())
-        self.processes.append(p1)
-        p2 = mp.Process(target=self.monitor_mem_usage, args=())
-        self.processes.append(p2)
-        p3 = mp.Process(target=self.monitor_io_usage, args=())
-        self.processes.append(p3)
+        try:
+            p1 = mp.Process(target=self.monitor_cpu_usage, args=())
+            self.processes.append(p1)
+            p2 = mp.Process(target=self.monitor_mem_usage, args=())
+            self.processes.append(p2)
+            p3 = mp.Process(target=self.monitor_io_usage, args=())
+            self.processes.append(p3)
+        except Exception as e:
+            print(f'EXCEPTION IN RESOURCE MON {e}', flush = True)
         self.alive.value = True
         [proc.start() for proc in self.processes]
 

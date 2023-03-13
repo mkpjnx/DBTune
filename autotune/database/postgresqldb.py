@@ -2,6 +2,7 @@ import os
 import time
 import threading
 import subprocess
+import re
 import paramiko
 import logging
 import numpy as np
@@ -14,9 +15,9 @@ from autotune.knobs import initialize_knobs, get_default_knobs
 
 dst_data_path = os.environ.get("DATADST")
 src_data_path = os.environ.get("DATASRC")
-RESTART_WAIT_TIME = 20
+RESTART_WAIT_TIME = 10
 TIMEOUT_CLOSE = 60
-
+CONNECT_TRIES = 30
 logging.getLogger("paramiko").setLevel(logging.ERROR)
 
 
@@ -35,6 +36,7 @@ class PostgresqlDB:
         self.pgcnf = args['cnf']
         self.pg_ctl = args['pg_ctl']
         self.pgdata = args['pgdata']
+        self.pg_pid_file = args['pg_pid_file']
         self.postgres = os.path.join(os.path.split(os.path.abspath(self.pg_ctl))[0], 'postgres')
 
         # remote information
@@ -46,8 +48,8 @@ class PostgresqlDB:
 
         # resource isolation information
         self.isolation_mode = eval(args['isolation_mode'])
-        if self.isolation_mode:
-            self.ssh_passwd = getpass(prompt='Password on host for cgroups commands: ')
+        # if self.isolation_mode:
+            # self.ssh_passwd = getpass(prompt='Password on host for cgroups commands: ')
 
         # PostgreSQL Internal Metrics
         self.num_metrics = 60
@@ -129,7 +131,7 @@ class PostgresqlDB:
         return knobs_not_in_cnf
 
     def _kill_postgres(self):
-        kill_cmd = '{} stop'.format(self.pg_ctl)
+        kill_cmd = f'{self.pg_ctl} -D {self.pgdata} stop'
         force_kill_cmd1 = "ps aux|grep '" + self.sock + "'|awk '{print $2}'|xargs kill -9"
         force_kill_cmd2 = "ps aux|grep '" + self.pgcnf + "'|awk '{print $2}'|xargs kill -9"
 
@@ -154,6 +156,7 @@ class PostgresqlDB:
             try:
                 outs, errs = p_close.communicate(timeout=TIMEOUT_CLOSE)
                 ret_code = p_close.poll()
+                print("shut down ret code", ret_code, outs)
                 if ret_code == 0:
                     logger.info("Close db successfully")
             except subprocess.TimeoutExpired:
@@ -163,7 +166,9 @@ class PostgresqlDB:
             logger.info('postgresql is shut down')
 
     def _start_postgres(self):
+        print("STARTING")
         if self.remote_mode:
+            print("REMOTE")
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(self.host, username=self.ssh_user, pkey=self.pk,
@@ -172,7 +177,6 @@ class PostgresqlDB:
             start_cmd = '{} --config_file={}'.format(self.postgres, self.pgcnf)
             wrapped_cmd = 'echo $$; exec ' + start_cmd
             _, start_stdout, _ = ssh.exec_command(wrapped_cmd)
-            self.pid = int(start_stdout.readline())
 
             if self.isolation_mode:
                 cgroup_cmd = 'sudo -S cgclassify -g memory,cpuset:server ' + str(self.pid)
@@ -187,16 +191,19 @@ class PostgresqlDB:
                     logger.info('Failed: add {} to memory,cpuset:server'.format(self.pid))
 
         else:
-            proc = subprocess.Popen([self.postgres, '--config_file={}'.format(self.pgcnf)])
-            self.pid = proc.pid
-            if self.isolation_mode:
-                command = 'sudo cgclassify -g memory,cpuset:server ' + str(self.pid)
-                p = os.system(command)
-                if not p:
-                    logger.info('add {} to memory,cpuset:server'.format(self.pid))
-                else:
-                    logger.info('Failed: add {} to memory,cpuset:server'.format(self.pid))
+            print("LOCAL START")
+            try:
+                startcmd = f'{self.pg_ctl} -D {self.pgdata} start'
+                if self.isolation_mode:
+                    startcmd = "cgexec -g memory,cpuset:server " + startcmd
 
+                proc = subprocess.Popen(startcmd, shell=True)
+                proc.wait()
+                with open(self.pg_pid_file) as pidfile:
+                    logger.info(f'postgres pid file: {self.pg_pid_file}')
+                    self.pid = int(pidfile.readlines()[0].strip())
+            except Exception as e:
+                print(f'EXCEPTION!!! {e}')
         count = 0
         start_sucess = True
         logger.info('wait for connection')
@@ -208,16 +215,18 @@ class PostgresqlDB:
                                           passwd=self.passwd,
                                           name=self.dbname)
                 db_conn = dbc.conn
+                logger.info(db_conn)
                 if db_conn.closed == 0:
                     logger.info('Connected to PostgreSQL db')
                     db_conn.close()
                     break
-            except:
+            except Exception as e:
+                logger.error(e)
                 pass
 
             time.sleep(1)
             count = count + 1
-            if count > 600:
+            if count > CONNECT_TRIES:
                 start_sucess = False
                 logger.info("can not connect to DB")
                 clear_cmd = """ps -ef|grep postgres|grep -v grep|cut -c 9-15|xargs kill -9"""
@@ -260,7 +269,7 @@ class PostgresqlDB:
 
     def apply_knobs_offline(self, knobs):
         self._kill_postgres()
-
+        print("KILLED, applying knobs offline")
         if 'min_wal_size' in knobs.keys():
             if 'wal_segment_size' in knobs.keys():
                 wal_segment_size = knobs['wal_segment_size']
@@ -271,6 +280,7 @@ class PostgresqlDB:
                 logger.info('"min_wal_size" must be at least twice "wal_segment_size"')
 
         knobs_not_in_cnf = self._gen_config_file(knobs)
+        print("RESTARTING POSTGRES...",flush = True)
         sucess = self._start_postgres()
         try:
             logger.info('sleeping for {} seconds after restarting postgres'.format(RESTART_WAIT_TIME))
@@ -284,6 +294,7 @@ class PostgresqlDB:
         except:
             sucess = False
 
+        print(f"RESTART POSTGRES success: {sucess}",flush = True)
         return sucess
 
     def _check_apply(self, db_conn, k, v0):

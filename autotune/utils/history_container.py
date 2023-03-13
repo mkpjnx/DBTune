@@ -100,6 +100,7 @@ class HistoryContainer(object):
         return c_new
 
     def update_observation(self, observation: Observation):
+        self.logger.info(f"update observation with config len {len(observation.config.get_dictionary())}")
         self.update_times.append(time.time() - self.global_start_time)
         config = observation.config
         objs = observation.objs
@@ -393,13 +394,16 @@ class HistoryContainer(object):
         return constraintL
 
     def alter_configuration_space(self, new_space: ConfigurationSpace):
+        self.logger.info(f"ALTER History Container to new space {len(new_space.get_hyperparameter_names())} {new_space.get_hyperparameter_names()}")
+        self.logger.info(f"{len(self.configurations)} == {self.config_counter}")
+       
         names = new_space.get_hyperparameter_names()
         all_default_config_dict = self.config_space_all.get_default_configuration().get_dictionary()
 
         configurations = []
         data = collections.OrderedDict()
 
-        for i in range(self.config_counter):
+        for i in range(len(self.configurations)):
             config = self.configurations_all[i]
             config_new = {}
             for name in names:
@@ -410,9 +414,9 @@ class HistoryContainer(object):
 
             c_new = Configuration(new_space, config_new)
             configurations.append(c_new)
-
-            perf = self.data_all[config]
-            data[c_new] = perf
+            if config in self.data_all:
+                perf = self.data_all[config]
+                data[c_new] = perf
 
         self.configurations = configurations
         self.data = data

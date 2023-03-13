@@ -24,7 +24,7 @@ constraints = ["200 - tps", "latency - 60"]
 DBTune also support multiple objective tuning, e.g., maximizing throughput and minimizing I/O.
 ```ini
 task_id = mutiple1
-performance_metric = ['tps', '-cpu]
+performance_metric = ['tps', '-cpu']
 reference_point = [0, 100]
 ```
 

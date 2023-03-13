@@ -155,7 +155,7 @@ def parse_oltpbench(file_path):
     with open(file_path) as f:
         lines = f.read()
 
-    tps_temporal_pattern = re.compile("Throughput.*?(\d+.\d+),")
+    tps_temporal_pattern = re.compile("Throughput.*?(\d+.\d+)")
     tps_temporal = tps_temporal_pattern.findall(lines)
     tps = float(tps_temporal[0])
 

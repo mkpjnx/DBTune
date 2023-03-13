@@ -78,13 +78,8 @@ class DBEnv:
         return reference_point
 
     def get_workload(self):
-        if self.args['workload'] == 'sysbench':
-            wl = dict(SYSBENCH_WORKLOAD)
-            wl['type'] = self.args['workload_type']
-        elif self.args['workload'].startswith('oltpbench_'):
+        if self.args['workload'].startswith('oltpbench_'):
             wl = dict(OLTPBENCH_WORKLOADS)
-        elif self.args['workload'] == 'job':
-            wl = dict(JOB_WORKLOAD)
         else:
             raise ValueError('Invalid workload!')
         return wl
@@ -95,7 +90,8 @@ class DBEnv:
         global TIMEOUT_TIME
         global RESTART_FREQUENCY
 
-        if self.workload['name'] == 'sysbench' or self.workload['name'] == 'oltpbench':
+        # if self.workload['name'] == 'sysbench' or self.workload['name'] == 'oltpbench':
+        if self.workload['name'] == 'oltpbench':
             try:
                 BENCHMARK_RUNNING_TIME = int(self.args['workload_time'])
             except:
@@ -107,65 +103,44 @@ class DBEnv:
             TIMEOUT_TIME = BENCHMARK_RUNNING_TIME + BENCHMARK_WARMING_TIME + 30
             RESTART_FREQUENCY = 200
 
-        elif self.workload['name'] == 'job':
-            try:
-                BENCHMARK_RUNNING_TIME = int(self.args['workload_time'])
-            except:
-                BENCHMARK_RUNNING_TIME = 240
-            try:
-                BENCHMARK_WARMING_TIME = int(self.args['workload_warmup_time'])
-            except:
-                BENCHMARK_WARMING_TIME = 0
-            TIMEOUT_TIME = BENCHMARK_RUNNING_TIME + BENCHMARK_WARMING_TIME
-            RESTART_FREQUENCY = 30000
+        # elif self.workload['name'] == 'job':
+        #     try:
+        #         BENCHMARK_RUNNING_TIME = int(self.args['workload_time'])
+        #     except:
+        #         BENCHMARK_RUNNING_TIME = 240
+        #     try:
+        #         BENCHMARK_WARMING_TIME = int(self.args['workload_warmup_time'])
+        #     except:
+        #         BENCHMARK_WARMING_TIME = 0
+        #     TIMEOUT_TIME = BENCHMARK_RUNNING_TIME + BENCHMARK_WARMING_TIME
+        #     RESTART_FREQUENCY = 30000
 
         else:
             raise ValueError('Invalid workload nmae!')
 
     def get_external_metrics(self, filename=''):
+        print("EXTERN")
         if not os.path.exists(filename):
             print("benchmark result file does not exist!")
-        if self.workload['name'] == 'sysbench':
-            result = parse_sysbench(filename)
-        elif self.workload['name'] == 'oltpbench':
-            result = parse_oltpbench('results/{}.summary'.format(filename))
-        elif self.workload['name'] == 'job':
-            dirname, _ = os.path.split(os.path.abspath(__file__))
-            select_file = dirname + '/cli/selectedList.txt'
-            result = parse_job(filename, select_file, timeout=TIMEOUT_TIME)
+            return[-1, -1, -1, -1, -1, -1]
+        if self.workload['name'] == 'oltpbench':
+            result = parse_oltpbench(filename)
+            print(f"BENCH RESULT {result}")
+            return result
         else:
             raise ValueError('Invalid workload name!')
-        return result
+        
 
     def get_benchmark_cmd(self):
         timestamp = int(time.time())
         filename = self.log_path + '/{}.log'.format(timestamp)
         dirname, _ = os.path.split(os.path.abspath(__file__))
-        if self.workload['name'] == 'sysbench':
-            cmd = self.workload['cmd'].format(dirname + '/cli/run_sysbench.sh',
-                                              self.workload['type'],
-                                              self.db.host,
-                                              self.db.port,
-                                              self.db.user,
-                                              150,
-                                              800000,
-                                              BENCHMARK_WARMING_TIME,
-                                              self.threads,
-                                              BENCHMARK_RUNNING_TIME,
-                                              filename,
-                                              self.db.dbname)
-        elif self.workload['name'] == 'oltpbench':
-            filename = filename.split('/')[-1].split('.')[0]
+
+        if self.workload['name'] == 'oltpbench':
             cmd = self.workload['cmd'].format(dirname + '/cli/run_oltpbench.sh',
-                                              self.db.dbname,
+                                              self.args['oltpbench_type'],
                                               self.oltpbench_config_xml,
                                               filename)
-        elif self.workload['name'] == 'job':
-            cmd = self.workload['cmd'].format(dirname + '/cli/run_job_{}.sh'.format(self.db.args['db']),
-                                              dirname + '/cli/selectedList.txt',
-                                              dirname + '/job_query/queries-{}-new'.format(self.db.args['db']),
-                                              filename,
-                                              self.db.sock)
         else:
             raise ValueError('Invalid workload name!')
 
@@ -199,6 +174,8 @@ class DBEnv:
                                        close_fds=True)
         try:
             outs, errs = p_benchmark.communicate(timeout=TIMEOUT_TIME)
+            # print(str(outs), flush=True)
+            # print(str(errs), flush=True)
             ret_code = p_benchmark.poll()
             if ret_code == 0:
                 print("[{}] benchmark finished!".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
@@ -267,11 +244,12 @@ class DBEnv:
                 knobs[key] = self.knobs_detail[key]['min']
                 logger.info("{} with value of is smaller than min, adjusted".format(key))
 
-        logger.info("[step {}] generate knobs: {}\n".format(self.step_count, knobs))
+        logger.info("[step {}] generate knobs: {}".format(self.step_count, knobs))
 
         if self.online_mode:
             flag = self.db.apply_knobs_online(knobs)
         else:
+            print("APPLY OFFLINE", flush = True)
             flag = self.db.apply_knobs_offline(knobs)
 
         if not flag:
@@ -282,7 +260,13 @@ class DBEnv:
 
             raise Exception('Apply knobs failed!')
 
-        s = self.get_states(collect_resource=collect_resource)
+        print("CALLING GETSTATE", flush = True)
+        s = None
+        try:
+            s = self.get_states(collect_resource=collect_resource)
+        except Exception as e:
+            print(f"EXCEPTION getstate {e}", flush = True)
+            raise e
 
         if s is None:
             if self.reinit:

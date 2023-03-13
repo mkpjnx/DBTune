@@ -2,10 +2,25 @@
 
 **DBTune** is a customized and efficient database tuning system that can automatically find good configuration knobs for a database system. It supports multiple tuning scenarios, including performance tuning, resource-oriented tuning or multiple-objective tuning defined by the users. DBTune is equipped with state-of-the-art techniques for tuning a database. DBTune is designed and developed by the database team from the <a href="https://cuibinpku.github.io/index.html" target="_blank" rel="nofollow">DAIR Lab</a> at Peking University.
 
+./autotune/cli/run_oltpbench.sh tpcc tpcc_config.xml results.json
+
+/usr/lib/postgresql/14/bin/pg_ctl -D /home/peijingx/pg_datadir start
+psql -h /home/peijingx/repos/DBTune/pg_socks
+
+NVME:
+/usr/lib/postgresql/14/bin/pg_ctl -D /mnt/nvme0n1/peijingx/pg_datadir start
+psql -h /home/peijingx/pg_socks -p 5469 postgres
+pg_restore -h /home/peijingx/pg_socks -p 5469 -d peijingx_tpch10_knobs -j 64 -c --if-exists /mnt/nvme0n1/tpch_10
 
 
+nohup python scripts/optimize.py --config experiments/configs/tpcc_default_nvme.ini &> tpcc_nvme.nohup &
 
-
+## Cgroups:
+```
+sudo cgcreate -g cpuset,memory:server -a peijingx -t peijingx
+cgset -r cpuset.cpus=0-7 server
+cgset -r memory.limit_in_bytes='8G' server
+```
 ## Why DBTune?
 - **Optimized for database tuning:** DBTune has customized functions and user-friendly interfaces for tuning the DBMSs. Users can conduct performance tuning, resource tuning or multiple-objective tuning by simply setting their tuning objectives.
 

@@ -63,6 +63,7 @@ class BO_Optimizer(object, metaclass=abc.ABCMeta):
 
         # initial design
         if initial_configurations is not None and len(initial_configurations) > 0:
+            self.logger.info(f"Existing list of initial configs {len(initial_configurations)}")
             self.initial_configurations = initial_configurations
             self.init_num = len(initial_configurations)
         else:
@@ -210,6 +211,9 @@ class BO_Optimizer(object, metaclass=abc.ABCMeta):
                 -------
                 An optimizer object.
                 """
+        
+        self.logger.info(f"Setup bo basics {len(config_space.get_hyperparameter_names())} {config_space.get_hyperparameter_names()}")
+
         if config_space is None:
             config_space = self.config_space
         else:
@@ -252,6 +256,7 @@ class BO_Optimizer(object, metaclass=abc.ABCMeta):
                                          rng=self.rng)
 
     def create_initial_design(self, init_strategy='default', excluded_configs=None):
+        self.logger.info(f"Creating {self.init_num} initial configs using strategy {init_strategy}")
         default_config = self.config_space.get_default_configuration()
         num_random_config = self.init_num - 1
         if init_strategy == 'random':
@@ -298,7 +303,7 @@ class BO_Optimizer(object, metaclass=abc.ABCMeta):
         return initial_configs
 
     def get_surrogate(self, history_container: HistoryContainer):
-
+    
         self.setup_bo_basics(history_container.config_space)
 
         X = convert_configurations_to_array(history_container.configurations)
@@ -330,10 +335,16 @@ class BO_Optimizer(object, metaclass=abc.ABCMeta):
 
     def get_suggestion(self, history_container: HistoryContainer, return_list=False):
         # if have enough data, get_suggorate
+        self.logger.info(
+                f"Calling get_suggestion on optimizer"
+                f"OPTIM: {len(self.config_space.get_hyperparameters())},"
+                f"CONTAINER: {len(history_container.config_space.get_hyperparameters())}"
+        )
         num_config_evaluated = len(history_container.configurations)
         num_config_successful = len(history_container.successful_perfs)
 
         if num_config_evaluated < self.init_num:
+            self.logger.info(f"num_config_evaluated({num_config_evaluated}) < self.init_num({self.init_num})")
             return self.initial_configurations[num_config_evaluated]
 
         X, Y, cY = self.get_surrogate(history_container)

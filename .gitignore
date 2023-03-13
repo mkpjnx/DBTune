@@ -10,3 +10,5 @@ train_user_*.py
 *.png
 scripts/log/
 .vscode/
+datadir/
+DBTune_history/

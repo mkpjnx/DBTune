@@ -8,7 +8,7 @@ from .knobs import logger, knobDF2action
 from .utils.parser import  get_action_data_json
 from .gp import gp_predict
 from autotune.knobs import knob2action
-from smac.optimizer.epm_configuration_chooser import EPMChooser
+from smac.optimizer.configuration_chooser.epm_chooser import EPMChooser
 import pdb
 
 

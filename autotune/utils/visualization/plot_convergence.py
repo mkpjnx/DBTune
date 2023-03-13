@@ -45,7 +45,7 @@ def plot_convergence(
     if ax is None:
         ax = plt.gca()
 
-    ax.set_title("Convergence plot")
+    # ax.set_title("Convergence plot")
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.grid()

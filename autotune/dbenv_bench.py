@@ -235,54 +235,12 @@ class BenchEnv(DBEnv):
         timestamp = int(time.time())
         filename = self.log_path + '/{}.log'.format(timestamp)
         dirname, _ = os.path.split(os.path.abspath(__file__))
-        if self.workload['name'] == 'sysbench':
-            cmd = self.workload['cmd'].format(dirname + '/cli/run_sysbench.sh',
-                                              self.workload['type'],
-                                              self.host,
-                                              self.port,
-                                              self.user,
-                                              150,
-                                              800000,
-                                              BENCHMARK_WARMING_TIME,
-                                              self.threads,
-                                              BENCHMARK_RUNNING_TIME,
-                                              filename,
-                                              self.dbname)
-            cmd = "sudo cgexec -g cpuset,memory:client " + cmd
-
-        elif self.workload['name'] == 'tpcc':
-            cmd = self.workload['cmd'].format(dirname + '/cli/run_tpcc.sh',
-                                              self.host,
-                                              self.port,
-                                              self.user,
-                                              self.threads,
-                                              BENCHMARK_WARMING_TIME,
-                                              BENCHMARK_RUNNING_TIME,
-                                              filename,
-                                              self.dbname)
-            cmd = "sudo cgexec -g cpuset,memory:client " + cmd
-
-        elif self.workload['name'] == 'oltpbench':
+        if self.workload['name'] == 'oltpbench':
             filename = filename.split('/')[-1].split('.')[0]
             cmd = self.workload['cmd'].format(dirname + '/cli/run_oltpbench.sh',
                                               self.dbname,
                                               self.oltpbench_config_xml,
                                               filename)
-            cmd = "sudo cgexec -g cpuset,memory:client " + cmd
-        elif self.workload['name'] == 'workload_zoo':
-            filename = filename.split('/')[-1].split('.')[0]
-            cmd = self.workload['cmd'].format(dirname + '/cli/run_workload_zoo.sh',
-                                              self.workload_zoo_app,
-                                              self.workload_zoo_config,
-                                              filename)
-            cmd = "sudo cgexec -g cpuset,memory:client " + cmd
-        elif self.workload['name'] == 'job':
-            cmd = self.workload['cmd'].format(dirname + '/cli/run_job_mysql.sh',
-                                              dirname + '/cli/selectedList.txt',
-                                              dirname + '/job_query/queries-mysql-new',
-                                              filename,
-                                              self.sock
-                                              )
             cmd = "sudo cgexec -g cpuset,memory:client " + cmd
 
         logger.info('[DBG]. {}'.format(cmd))

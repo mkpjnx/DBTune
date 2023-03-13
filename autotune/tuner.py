@@ -1,6 +1,7 @@
 import os
 import sys
-from autotune.utils.config_space import ConfigurationSpace, UniformIntegerHyperparameter, CategoricalHyperparameter, UniformFloatHyperparameter
+from autotune.utils.config_space import ConfigurationSpace, UniformIntegerHyperparameter, UniformFloatHyperparameter
+from autotune.utils.config_space import CategoricalHyperparameter, OrdinalHyperparameter
 from autotune.workload_map import WorkloadMapping
 from autotune.pipleline.pipleline import PipleLine
 from .knobs import ts, logger
@@ -41,17 +42,17 @@ class DBTuner:
             if knob_type == 'enum':
                 knob = CategoricalHyperparameter(name, [str(i) for i in value["enum_values"]])
             elif knob_type == 'integer':
-                min_val, max_val = value['min'], value['max']
+                min_val, max_val, default = value['min'], value['max'], value['default']
                 if self.env.knobs_detail[name]['max'] > sys.maxsize:
-                    knob = UniformIntegerHyperparameter(name, int(min_val / 1000), int(max_val / 1000),
-                                                        default_value=int(value['default'] / 1000))
-                else:
-                    knob = UniformIntegerHyperparameter(name, min_val, max_val, default_value=value['default'])
+                    min_val, max_val, default = int(min_val / 1000), int(max_val / 1000), int(default / 1000)
+                knob = UniformIntegerHyperparameter(name, min_val, max_val, default_value=default)
             elif knob_type == 'float':
-                min_val, max_val = value['min'], value['max']
-                knob = UniformFloatHyperparameter(name, min_val, max_val, default_value=value['default'])
+                min_val, max_val, default = value['min'], value['max'], value['default']
+                knob = UniformFloatHyperparameter(name, min_val, max_val, default_value=default)
+            elif knob_type == 'ordinal':
+                knob = OrdinalHyperparameter(name, value["ordered_values"])
             else:
-                raise ValueError('Invalid knob type!')
+                raise ValueError(f'Invalid knob type! {name}:{knob_type}')
 
             knobs_list.append(knob)
 
